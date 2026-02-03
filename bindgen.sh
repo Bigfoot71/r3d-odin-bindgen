@@ -174,7 +174,24 @@ log_dim "Copied imports.odin"
 cp "$BASE/bindgen.sjson" "$BINDING/"
 
 # Auto-detect clang include path
-CLANG_INCLUDE=$(find /usr/lib/clang -name "stddef.h" 2>/dev/null | head -1 | xargs dirname)
+CLANG_INCLUDE=""
+
+# First try with llvm-config (reliable when LLVM is installed via llvm.sh)
+if command -v llvm-config &>/dev/null; then
+    LLVM_PREFIX=$(llvm-config --prefix)
+    if [[ -f "$LLVM_PREFIX/lib/clang/$(llvm-config --version | cut -d' ' -f1)/include/stddef.h" ]]; then
+        CLANG_INCLUDE="$LLVM_PREFIX/lib/clang/$(llvm-config --version | cut -d' ' -f1)/include"
+    fi
+fi
+
+# Fallback: searches in standard paths
+if [[ -z "$CLANG_INCLUDE" ]]; then
+    CANDIDATE=$(find /usr/lib/clang /usr/lib/llvm-*/lib/clang -name "stddef.h" 2>/dev/null | head -1)
+    if [[ -n "$CANDIDATE" ]]; then
+        CLANG_INCLUDE=$(dirname "$CANDIDATE")
+    fi
+fi
+
 if [[ -z "$CLANG_INCLUDE" ]]; then
     log_error "Could not find clang includes"
     exit 1
