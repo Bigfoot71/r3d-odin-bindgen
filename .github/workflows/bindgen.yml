@@ -3,7 +3,7 @@ name: Generate Odin Bindings
 on:
   repository_dispatch:
     types: [r3d-updated]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
     inputs:
       r3d_run_id:
         description: 'Run ID from r3d CI workflow (optional, will build libs if not provided)'
@@ -24,76 +24,28 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            perl \
-            wget \
-            lsb-release \
-            software-properties-common \
-            gnupg
-
-      - name: Install LLVM 18 and Clang 18
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
-          
-          # Install additional LLVM tools
-          sudo apt-get install -y \
-            llvm-18 \
-            llvm-18-dev \
-            llvm-18-tools \
-            libllvm18 \
-            clang-18 \
-            clang-tools-18 \
-            libclang-18-dev \
-            libclang-common-18-dev \
-            libstdc++-12-dev
-
-          # Set up alternatives to use clang-18 as default
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
-          sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-18 100
-
-          # Symlinks so that the linker can find -lclang
-          sudo ln -sf /usr/lib/llvm-18/lib/libclang-18.so /usr/lib/llvm-18/lib/libclang.so
-          sudo ln -sf /usr/lib/llvm-18/lib/libclang-18.so /usr/lib/x86_64-linux-gnu/libclang.so
-          sudo ln -sf /usr/lib/llvm-18/lib/libclang-18.a /usr/lib/llvm-18/lib/libclang.a
-
-          # Verify installation
-          clang --version
-          llvm-config --version
+            llvm-14 \
+            clang-14 \
+            libclang-14-dev \
+            build-essential \
+            git
 
       - name: Install Odin compiler
         run: |
-          # Clone Odin repository
           git clone https://github.com/odin-lang/Odin.git /tmp/Odin
           cd /tmp/Odin
-
-          # Build Odin with LLVM 18
-          export LLVM_CONFIG=/usr/bin/llvm-config-18
           make release-native
-
-          # Add Odin to PATH
           echo "/tmp/Odin" >> $GITHUB_PATH
-
-          # Verify installation
           /tmp/Odin/odin version
 
       - name: Build odin-c-bindgen
         run: |
-          # Clone odin-c-bindgen repository
           git clone https://github.com/karl-zylinski/odin-c-bindgen.git /tmp/odin-c-bindgen
           cd /tmp/odin-c-bindgen/src
-
-          # Build with Odin (output to a file, not directory)
-          export LD_LIBRARY_PATH=/usr/lib/llvm-18/lib:$LD_LIBRARY_PATH
-          export LIBRARY_PATH=/usr/lib/llvm-18/lib:$LIBRARY_PATH
+          
           /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
-
-          # Move to a location in PATH
           sudo mv /tmp/odin-c-bindgen-bin /usr/local/bin/odin-c-bindgen
           sudo chmod +x /usr/local/bin/odin-c-bindgen
-
-          # Verify installation
           which odin-c-bindgen
 
       - name: Download pre-built libraries from r3d
@@ -110,11 +62,9 @@ jobs:
       - name: Prepare pre-built libraries for bindgen script
         if: github.event.client_payload.run_id || inputs.r3d_run_id
         run: |
-          # Create directories for organized libs
           mkdir -p ./libs/linux
           mkdir -p ./libs/windows
 
-          # Find and copy Linux library (from GCC build)
           LINUX_LIB=$(find ./prebuilt-libs/r3d-ubuntu-latest-Release-gcc -name "libr3d.a" | head -1)
           if [ -n "$LINUX_LIB" ]; then
             cp "$LINUX_LIB" ./libs/linux/libr3d.a
@@ -123,7 +73,6 @@ jobs:
             echo "Warning: Linux library not found"
           fi
 
-          # Find and copy Windows library (from MinGW build)
           WINDOWS_LIB=$(find ./prebuilt-libs/r3d-windows-latest-Release-gcc -name "libr3d.a" | head -1)
           if [ -n "$WINDOWS_LIB" ]; then
             cp "$WINDOWS_LIB" ./libs/windows/libr3d.a
@@ -132,7 +81,6 @@ jobs:
             echo "Warning: Windows library not found"
           fi
 
-          # Check what we got
           ls -lR ./libs/
 
       - name: Generate bindings (with pre-built libs)
@@ -146,7 +94,6 @@ jobs:
       - name: Generate bindings (build libs from scratch)
         if: steps.bindgen_prebuilt.outcome == 'skipped' || steps.bindgen_prebuilt.outcome == 'failure'
         run: |
-          # Install dependencies needed to build libs
           sudo apt-get install -y \
             cmake \
             ninja-build \
