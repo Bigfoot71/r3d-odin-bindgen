@@ -96,7 +96,7 @@ remove = [
 ]
 
 clang_include_paths = [
-    "/home/bigfoot/Projets/r3d/external/raylib/src"
+    "../r3d/external/raylib/src"
     "@CLANG_INCLUDE@"
     "."
 ]
