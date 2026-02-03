@@ -21,6 +21,22 @@ readonly CMAKE_COMMON="-DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -G Nin
 readonly VENDOR_FLAGS_LINUX="-DR3D_RAYLIB_VENDORED=ON -DR3D_ASSIMP_VENDORED=ON"
 readonly VENDOR_FLAGS_WINDOWS="-DR3D_RAYLIB_VENDORED=ON -DR3D_ASSIMP_VENDORED=ON"
 
+# Parse command line arguments
+PREBUILT_LIBS_DIR=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --prebuilt-libs)
+            PREBUILT_LIBS_DIR="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--prebuilt-libs <directory>]"
+            exit 1
+            ;;
+    esac
+done
+
 # Helper functions
 log_step() {
     echo -e "${C_BOLD}${C_BLUE}▸ Step $1:${C_RESET} ${C_CYAN}$2${C_RESET}"
@@ -49,7 +65,7 @@ log_dim() {
 log_step "1" "Preliminary checks"
 
 # Required tools
-readonly REQUIRED_TOOLS=(cmake ninja odin-c-bindgen)
+readonly REQUIRED_TOOLS=(odin-c-bindgen)
 for tool in "${REQUIRED_TOOLS[@]}"; do
     if ! command -v "$tool" &>/dev/null; then
         log_error "'$tool' not found in PATH"
@@ -66,94 +82,125 @@ if [[ ! -d "$DIR" ]] || [[ -z "$(ls -A "$DIR" 2>/dev/null)" ]]; then
 fi
 log_info "r3d submodule present"
 
-# Internal r3d submodules
-readonly CRITICAL_SUBMODULES=(
-    "r3d/external/assimp/CMakeLists.txt"
-    "r3d/external/raylib/src/raylib.h"
-)
-for sub in "${CRITICAL_SUBMODULES[@]}"; do
-    if [[ ! -f "$sub" ]]; then
-        log_error "$sub not found"
-        log_dim "Run: cd r3d && git submodule update --init --recursive"
+# ================================================================
+# 2. Handle libraries (pre-built or build from source)
+# ================================================================
+
+if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
+    log_step "2" "Using pre-built libraries"
+
+    mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/windows"
+
+    # Copy pre-built libraries
+    if [[ -f "$PREBUILT_LIBS_DIR/linux/libr3d.a" ]]; then
+        cp "$PREBUILT_LIBS_DIR/linux/libr3d.a" "$BINDING/r3d/linux/libr3d.a"
+        log_dim "linux: libr3d.a (pre-built)"
+    else
+        log_error "Pre-built Linux library not found at $PREBUILT_LIBS_DIR/linux/libr3d.a"
         exit 1
     fi
-done
-log_info "Internal submodules present"
 
-# ================================================================
-# 2. CMake build (Linux + Windows in parallel)
-# ================================================================
-
-log_step "2" "Building libraries"
-
-readonly BUILD_LINUX="$BINDING/build/linux"
-readonly BUILD_WIN="$BINDING/build/windows"
-mkdir -p "$BUILD_LINUX" "$BUILD_WIN"
-
-# Temporary directory for error sentinels
-readonly ERRDIR=$(mktemp -d)
-trap "rm -rf $ERRDIR" EXIT
-
-# Generic build function with platform specific logging
-build_platform() {
-    local platform="$1"
-    local build_dir="$2"
-    local extra_flags="$3"
-    local logfile="$BINDING/build_${platform}.log"
-
-    log_dim "Building for $platform (log: $logfile)"
-
-    if (
-        cd "$build_dir"
-        cmake ../../../r3d $CMAKE_COMMON $extra_flags 2>&1
-        ninja 2>&1
-    ) > "$logfile" 2>&1; then
-        log_info "$platform build successful"
+    if [[ -f "$PREBUILT_LIBS_DIR/windows/libr3d.a" ]]; then
+        cp "$PREBUILT_LIBS_DIR/windows/libr3d.a" "$BINDING/r3d/windows/libr3d.a"
+        log_dim "windows: libr3d.a (pre-built)"
     else
-        log_error "$platform build failed — see $logfile"
-        touch "$ERRDIR/$platform"
+        log_error "Pre-built Windows library not found at $PREBUILT_LIBS_DIR/windows/libr3d.a"
+        exit 1
     fi
-}
 
-# Launch builds in parallel
-build_platform "linux"   "$BUILD_LINUX" "$VENDOR_FLAGS_LINUX" &
-build_platform "windows" "$BUILD_WIN"   "$VENDOR_FLAGS_WINDOWS -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake" &
+    log_info "Pre-built libraries ready"
+else
+    log_step "2" "Building libraries from source"
 
-wait
+    # Additional tools required for building
+    for tool in cmake ninja; do
+        if ! command -v "$tool" &>/dev/null; then
+            log_error "'$tool' not found in PATH (required for building libraries)"
+            exit 1
+        fi
+    done
 
-# Check for build failures
-if compgen -G "$ERRDIR/*" > /dev/null; then
-    log_error "Build failed for: $(ls "$ERRDIR" | tr '\n' ' ')"
-    exit 1
+    # Internal r3d submodules check
+    readonly CRITICAL_SUBMODULES=(
+        "r3d/external/assimp/CMakeLists.txt"
+        "r3d/external/raylib/src/raylib.h"
+    )
+    for sub in "${CRITICAL_SUBMODULES[@]}"; do
+        if [[ ! -f "$sub" ]]; then
+            log_error "$sub not found"
+            log_dim "Run: cd r3d && git submodule update --init --recursive"
+            exit 1
+        fi
+    done
+    log_info "Internal submodules present"
+
+    readonly BUILD_LINUX="$BINDING/build/linux"
+    readonly BUILD_WIN="$BINDING/build/windows"
+    mkdir -p "$BUILD_LINUX" "$BUILD_WIN"
+
+    # Temporary directory for error sentinels
+    readonly ERRDIR=$(mktemp -d)
+    trap "rm -rf $ERRDIR" EXIT
+
+    # Generic build function with platform specific logging
+    build_platform() {
+        local platform="$1"
+        local build_dir="$2"
+        local extra_flags="$3"
+        local logfile="$BINDING/build_${platform}.log"
+
+        log_dim "Building for $platform (log: $logfile)"
+
+        if (
+            cd "$build_dir"
+            cmake ../../../r3d $CMAKE_COMMON $extra_flags 2>&1
+            ninja 2>&1
+        ) > "$logfile" 2>&1; then
+            log_info "$platform build successful"
+        else
+            log_error "$platform build failed — see $logfile"
+            touch "$ERRDIR/$platform"
+        fi
+    }
+
+    # Launch builds in parallel
+    build_platform "linux"   "$BUILD_LINUX" "$VENDOR_FLAGS_LINUX" &
+    build_platform "windows" "$BUILD_WIN"   "$VENDOR_FLAGS_WINDOWS -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake" &
+
+    wait
+
+    # Check for build failures
+    if compgen -G "$ERRDIR/*" > /dev/null; then
+        log_error "Build failed for: $(ls "$ERRDIR" | tr '\n' ' ')"
+        exit 1
+    fi
+
+    # Copy static libraries
+    log_step "3" "Copying built libraries"
+
+    mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/windows"
+
+    for platform in linux windows; do
+        src="$BINDING/build/$platform/lib/libr3d.a"
+        dst="$BINDING/r3d/$platform/libr3d.a"
+
+        if [[ ! -f "$src" ]]; then
+            log_error "$src not found — check build logs"
+            exit 1
+        fi
+
+        cp "$src" "$dst"
+        log_dim "$platform: libr3d.a"
+    done
+    log_info "Libraries copied successfully"
 fi
 
 # ================================================================
-# 3. Copy static libraries
+# 3. Prepare binding configuration
 # ================================================================
 
-log_step "3" "Copying libraries"
-
-mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/windows"
-
-for platform in linux windows; do
-    src="$BINDING/build/$platform/lib/libr3d.a"
-    dst="$BINDING/r3d/$platform/libr3d.a"
-
-    if [[ ! -f "$src" ]]; then
-        log_error "$src not found — check build logs"
-        exit 1
-    fi
-
-    cp "$src" "$dst"
-    log_dim "$platform: libr3d.a"
-done
-log_info "Libraries copied successfully"
-
-# ================================================================
-# 4. Prepare binding configuration
-# ================================================================
-
-log_step "4" "Preparing binding configuration"
+NEXT_STEP=$([[ -z "$PREBUILT_LIBS_DIR" ]] && echo "4" || echo "3")
+log_step "$NEXT_STEP" "Preparing binding configuration"
 
 # Create inputs directory
 mkdir -p "$BINDING/inputs"
@@ -187,10 +234,11 @@ sed -i "s|@CLANG_INCLUDE@|$CLANG_INCLUDE|g" "$BINDING/bindgen.sjson"
 log_info "Configuration prepared"
 
 # ================================================================
-# 5. Generate bindings (odin-c-bindgen)
+# 4. Generate bindings (odin-c-bindgen)
 # ================================================================
 
-log_step "5" "Generating bindings"
+NEXT_STEP=$((NEXT_STEP + 1))
+log_step "$NEXT_STEP" "Generating bindings"
 
 # Run odin-c-bindgen from the binding directory
 if (cd "$BINDING" && odin-c-bindgen .) 2>&1; then
@@ -202,10 +250,11 @@ fi
 echo ""
 
 # ================================================================
-# 6. Clean up and fix raylib types
+# 5. Clean up and fix raylib types
 # ================================================================
 
-log_step "6" "Post-processing bindings"
+NEXT_STEP=$((NEXT_STEP + 1))
+log_step "$NEXT_STEP" "Post-processing bindings"
 
 # Remove the generated 'r3d.odin' file, which is unnecessary
 # TODO: Check whether we can ignore it via odin-c-bindgen
@@ -272,7 +321,11 @@ fi
 # ================================================================
 
 echo ""
-echo -e "${C_BOLD}${C_GREEN}✓ Complete!${C_RESET} Output: ${C_CYAN}$BINDING/r3d${C_RESET}"
+if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
+    echo -e "${C_BOLD}${C_GREEN}✓ Complete!${C_RESET} ${C_DIM}(using pre-built libs)${C_RESET} Output: ${C_CYAN}$BINDING/r3d${C_RESET}"
+else
+    echo -e "${C_BOLD}${C_GREEN}✓ Complete!${C_RESET} ${C_DIM}(built from source)${C_RESET} Output: ${C_CYAN}$BINDING/r3d${C_RESET}"
+fi
 
 # ================================================================
 # LICENSE
