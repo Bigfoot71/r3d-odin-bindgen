@@ -76,11 +76,11 @@ jobs:
           git clone https://github.com/karl-zylinski/odin-c-bindgen.git /tmp/odin-c-bindgen
           cd /tmp/odin-c-bindgen/src
 
-          # Build with Odin
-          /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen
+          # Build with Odin (output to a file, not directory)
+          /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
 
           # Move to a location in PATH
-          sudo mv /tmp/odin-c-bindgen /usr/local/bin/odin-c-bindgen
+          sudo mv /tmp/odin-c-bindgen-bin /usr/local/bin/odin-c-bindgen
           sudo chmod +x /usr/local/bin/odin-c-bindgen
 
           # Verify installation
@@ -110,5 +110,5 @@ jobs:
             {
               "run_id": "${{ github.run_id }}",
               "source_sha": "${{ github.event.client_payload.sha }}",
-              "source_commit": "${{ github.event.client_payload.commit_message }}"
+              "source_commit": "${{ github.event.client_payload.source_commit }}"
             }
