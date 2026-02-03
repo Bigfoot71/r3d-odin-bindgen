@@ -1,8 +1,8 @@
 inputs = [
-    "binding/inputs"
+    "inputs"
 ]
 
-output_folder = "binding/r3d"
+output_folder = "r3d"
 imports_file = "imports.odin"
 package_name = "r3d"
 
@@ -97,7 +97,7 @@ remove = [
 
 clang_include_paths = [
     "/home/bigfoot/Projets/r3d/external/raylib/src"
-    "/usr/lib/clang/21/include"
+    "@CLANG_INCLUDE@"
     "."
 ]
 

@@ -14,6 +14,7 @@ readonly C_CYAN='\033[0;36m'
 # Paths
 readonly DIR="./r3d/include/r3d"
 readonly BINDING="./binding"
+readonly BASE="./base"
 readonly CMAKE_COMMON="-DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -G Ninja"
 
 # Platform-specific vendor flags
@@ -149,16 +150,49 @@ done
 log_info "Libraries copied successfully"
 
 # ================================================================
-# 4. Generate bindings (odin-c-bindgen)
+# 4. Prepare binding configuration
 # ================================================================
 
-log_step "4" "Generating bindings"
+log_step "4" "Preparing binding configuration"
 
+# Create inputs directory
 mkdir -p "$BINDING/inputs"
-cp -r ./r3d/include/r3d/* "$BINDING/inputs/"
-cp -r ./footers/*         "$BINDING/inputs/"
 
-if odin-c-bindgen . 2>&1; then
+# Copy r3d headers
+cp -r ./r3d/include/r3d/* "$BINDING/inputs/"
+log_dim "Copied r3d headers"
+
+# Copy footer files from base
+cp -r "$BASE/inputs/"* "$BINDING/inputs/"
+log_dim "Copied footer files"
+
+# Copy imports.odin to binding directory
+cp "$BASE/imports.odin" "$BINDING/"
+log_dim "Copied imports.odin"
+
+# Copy and configure bindgen.sjson
+cp "$BASE/bindgen.sjson" "$BINDING/"
+
+# Auto-detect clang include path
+CLANG_INCLUDE=$(find /usr/lib/clang -name "stddef.h" 2>/dev/null | head -1 | xargs dirname)
+if [[ -z "$CLANG_INCLUDE" ]]; then
+    log_error "Could not find clang includes"
+    exit 1
+fi
+log_dim "Detected clang includes: $CLANG_INCLUDE"
+
+# Replace placeholder in bindgen.sjson
+sed -i "s|@CLANG_INCLUDE@|$CLANG_INCLUDE|g" "$BINDING/bindgen.sjson"
+log_info "Configuration prepared"
+
+# ================================================================
+# 5. Generate bindings (odin-c-bindgen)
+# ================================================================
+
+log_step "5" "Generating bindings"
+
+# Run odin-c-bindgen from the binding directory
+if (cd "$BINDING" && odin-c-bindgen .) 2>&1; then
     log_info "Bindings generated"
 else
     log_error "odin-c-bindgen failed"
@@ -167,10 +201,17 @@ fi
 echo ""
 
 # ================================================================
-# 5. Clean up and fix raylib types
+# 6. Clean up and fix raylib types
 # ================================================================
 
-log_step "5" "Post-processing bindings"
+log_step "6" "Post-processing bindings"
+
+# Remove the generated 'r3d.odin' file, which is unnecessary
+# TODO: Check whether we can ignore it via odin-c-bindgen
+if [[ -f "$BINDING/r3d/r3d.odin" ]]; then
+    rm "$BINDING/r3d/r3d.odin"
+    log_dim "Removed r3d.odin"
+fi
 
 # Raylib types to prefix with 'rl.'
 # Ordered: compound types before base types
