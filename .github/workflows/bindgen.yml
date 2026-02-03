@@ -20,53 +20,19 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            llvm-14 \
-            llvm-14-dev \
-            clang-14 \
-            libclang-14-dev \
-            libclang-common-14-dev \
-            build-essential \
-            git \
-            perl
+      - name: Setup Odin
+        uses: laytan/setup-odin@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release: latest
 
-          # Create symlinks for libclang so the linker can find it
-          sudo ln -sf /usr/lib/llvm-14/lib/libclang-14.so.1 /usr/lib/llvm-14/lib/libclang.so
-          sudo ln -sf /usr/lib/llvm-14/lib/libclang-14.so.1 /usr/lib/x86_64-linux-gnu/libclang.so
-
-          # Verify installation
-          clang-14 --version
-          llvm-config-14 --version
-          ls -la /usr/lib/llvm-14/lib/libclang*
-
-      - name: Install Odin compiler
-        run: |
-          git clone https://github.com/odin-lang/Odin.git /tmp/Odin
-          cd /tmp/Odin
-
-          # Build with LLVM 14
-          export LLVM_CONFIG=/usr/bin/llvm-config-14
-          make release-native
-
-          echo "/tmp/Odin" >> $GITHUB_PATH
-          /tmp/Odin/odin version
-
-      - name: Build odin-c-bindgen
+      - name: Install odin-c-bindgen
         run: |
           git clone https://github.com/karl-zylinski/odin-c-bindgen.git /tmp/odin-c-bindgen
           cd /tmp/odin-c-bindgen/src
-
-          # Set library paths for linking
-          export LD_LIBRARY_PATH=/usr/lib/llvm-14/lib:$LD_LIBRARY_PATH
-          export LIBRARY_PATH=/usr/lib/llvm-14/lib:$LIBRARY_PATH
-
-          /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
+          odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
           sudo mv /tmp/odin-c-bindgen-bin /usr/local/bin/odin-c-bindgen
           sudo chmod +x /usr/local/bin/odin-c-bindgen
-          which odin-c-bindgen
 
       - name: Download pre-built libraries from r3d
         if: github.event.client_payload.run_id || inputs.r3d_run_id
@@ -114,6 +80,7 @@ jobs:
       - name: Generate bindings (build libs from scratch)
         if: steps.bindgen_prebuilt.outcome == 'skipped' || steps.bindgen_prebuilt.outcome == 'failure'
         run: |
+          sudo apt-get update
           sudo apt-get install -y \
             cmake \
             ninja-build \
