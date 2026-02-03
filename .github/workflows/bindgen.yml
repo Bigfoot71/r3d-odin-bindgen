@@ -43,6 +43,7 @@ jobs:
             clang-18 \
             clang-tools-18 \
             libclang-18-dev \
+            libclang-common-18-dev \
             libstdc++-12-dev
 
           # Set up alternatives to use clang-18 as default
@@ -77,6 +78,8 @@ jobs:
           cd /tmp/odin-c-bindgen/src
 
           # Build with Odin (output to a file, not directory)
+          # Set library path to help linker find libclang
+          export LD_LIBRARY_PATH=/usr/lib/llvm-18/lib:$LD_LIBRARY_PATH
           /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
 
           # Move to a location in PATH
