@@ -1,4 +1,4 @@
-# r3d-odin binding generator
+# r3d-odin-bindgen
 
 This is a script that automates the generation of Odin bindings for [r3d](https://github.com/Bigfoot71/r3d), including cross-compilation of static libraries for both Linux and Windows.
 
