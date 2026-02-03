@@ -22,8 +22,6 @@ jobs:
             cmake \
             ninja-build \
             mingw-w64 \
-            libraylib-dev \
-            libassimp-dev \
             perl \
             wget \
             lsb-release \
