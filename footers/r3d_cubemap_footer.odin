@@ -1,0 +1,15 @@
+CUBEMAP_SKY_BASE :: CubemapSky {
+    skyTopColor = {98, 116, 140, 255},
+    skyHorizonColor = {165, 167, 171, 255},
+    skyHorizonCurve = 0.15,
+    skyEnergy = 1.0,
+    groundBottomColor = {51, 43, 34, 255},
+    groundHorizonColor = {165, 167, 171, 255},
+    groundHorizonCurve = 0.02,
+    groundEnergy = 1.0,
+    sunDirection = {-1.0, -1.0, -1.0},
+    sunColor = {255, 255, 255, 255},
+    sunSize = 1.5 * rl.DEG2RAD,
+    sunCurve = 0.15,
+    sunEnergy = 1.0,
+}

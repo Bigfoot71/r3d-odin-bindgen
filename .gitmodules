@@ -1,0 +1,3 @@
+[submodule "r3d"]
+	path = r3d
+	url = https://github.com/Bigfoot71/r3d.git

@@ -1,0 +1,106 @@
+inputs = [
+    "binding/inputs"
+]
+
+output_folder = "binding/r3d"
+imports_file = "imports.odin"
+package_name = "r3d"
+
+remove_type_prefix = "R3D_"
+remove_function_prefix = "R3D_"
+remove_type_suffix = ""
+
+force_ada_case_types = false
+
+rename = {
+
+}
+
+bit_setify = {
+
+}
+
+type_overrides = {
+
+}
+
+struct_field_overrides = {
+    "R3D_AnimationTrack.times"       = "[^]"
+    "R3D_AnimationTrack.values"      = "[^]f32"
+    "R3D_Animation.channels"         = "[^]"
+    "R3D_AnimationPlayer.states"     = "[^]"
+    "R3D_AnimationPlayer.localPose"  = "[^]"
+    "R3D_AnimationPlayer.modelPose"  = "[^]"
+    "R3D_AnimationPlayer.skinBuffer" = "[^]"
+    "R3D_MeshData.vertices"          = "[^]"
+    "R3D_MeshData.indices"           = "[^]"
+    "R3D_Model.meshes"               = "[^]"
+    "R3D_Model.meshData"             = "[^]"
+    "R3D_Model.materials"            = "[^]"
+    "R3D_Model.meshMaterials"        = "[^]"
+    "R3D_Skeleton.bones"             = "[^]"
+    "R3D_Skeleton.localBind"         = "[^]"
+    "R3D_Skeleton.modelBind"         = "[^]"
+    "R3D_Skeleton.invBind"           = "[^]"
+    "R3D_Skeleton.rootBind"          = "[16]f32"
+}
+
+struct_field_tags = {
+
+}
+
+procedure_type_overrides = {
+
+}
+
+procedures_at_end = true
+
+remove = [
+    "R3D_AmbientFlags"
+    "R3D_AMBIENT_ILLUMINATION"
+    "R3D_AMBIENT_REFLECTION"
+
+    "R3D_Layer"
+    "R3D_LAYER_01"
+    "R3D_LAYER_02"
+    "R3D_LAYER_03"
+    "R3D_LAYER_04"
+    "R3D_LAYER_05"
+    "R3D_LAYER_06"
+    "R3D_LAYER_07"
+    "R3D_LAYER_08"
+    "R3D_LAYER_09"
+    "R3D_LAYER_10"
+    "R3D_LAYER_11"
+    "R3D_LAYER_12"
+    "R3D_LAYER_13"
+    "R3D_LAYER_14"
+    "R3D_LAYER_15"
+    "R3D_LAYER_16"
+    "R3D_LAYER_ALL"
+
+    "R3D_ImportFlags"
+    "R3D_IMPORT_MESH_DATA"
+    "R3D_IMPORT_QUALITY"
+
+    "R3D_InstanceFlags"
+    "R3D_INSTANCE_POSITION"
+    "R3D_INSTANCE_ROTATION"
+    "R3D_INSTANCE_SCALE"
+    "R3D_INSTANCE_COLOR"
+    "R3D_INSTANCE_ATTRIBUTE_COUNT"
+
+    "R3D_ProbeFlags"
+    "R3D_PROBE_ILLUMINATION"
+    "R3D_PROBE_REFLECTION"
+]
+
+clang_include_paths = [
+    "/home/bigfoot/Projets/r3d/external/raylib/src"
+    "/usr/lib/clang/21/include"
+    "."
+]
+
+clang_defines = {
+
+}
