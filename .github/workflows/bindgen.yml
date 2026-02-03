@@ -1,0 +1,116 @@
+name: Generate Odin Bindings
+
+on:
+  repository_dispatch:
+    types: [r3d-updated]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout bindgen repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            mingw-w64 \
+            libraylib-dev \
+            libassimp-dev \
+            perl \
+            wget \
+            lsb-release \
+            software-properties-common \
+            gnupg
+
+      - name: Install LLVM 18 and Clang 18
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          
+          # Install additional LLVM tools
+          sudo apt-get install -y \
+            llvm-18 \
+            llvm-18-dev \
+            llvm-18-tools \
+            libllvm18 \
+            clang-18 \
+            clang-tools-18 \
+            libclang-18-dev \
+            libstdc++-12-dev
+
+          # Set up alternatives to use clang-18 as default
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+          sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-18 100
+
+          # Verify installation
+          clang --version
+          llvm-config --version
+
+      - name: Install Odin compiler
+        run: |
+          # Clone Odin repository
+          git clone https://github.com/odin-lang/Odin.git /tmp/Odin
+          cd /tmp/Odin
+
+          # Build Odin with LLVM 18
+          export LLVM_CONFIG=/usr/bin/llvm-config-18
+          make release-native
+
+          # Add Odin to PATH
+          echo "/tmp/Odin" >> $GITHUB_PATH
+
+          # Verify installation
+          /tmp/Odin/odin version
+
+      - name: Build odin-c-bindgen
+        run: |
+          # Clone odin-c-bindgen repository
+          git clone https://github.com/karl-zylinski/odin-c-bindgen.git /tmp/odin-c-bindgen
+          cd /tmp/odin-c-bindgen/src
+
+          # Build with Odin
+          /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen
+
+          # Move to a location in PATH
+          sudo mv /tmp/odin-c-bindgen /usr/local/bin/odin-c-bindgen
+          sudo chmod +x /usr/local/bin/odin-c-bindgen
+
+          # Verify installation
+          which odin-c-bindgen
+          odin-c-bindgen --version || echo "odin-c-bindgen installed successfully"
+
+      - name: Generate bindings
+        run: |
+          chmod +x bindgen.sh
+          ./bindgen.sh
+
+      - name: Upload binding artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3d-odin-bindings
+          path: binding/r3d/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Trigger r3d-odin update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.BINDGEN_PAT }}
+          repository: Bigfoot71/r3d-odin
+          event-type: bindings-ready
+          client-payload: |
+            {
+              "run_id": "${{ github.run_id }}",
+              "source_sha": "${{ github.event.client_payload.sha }}",
+              "source_commit": "${{ github.event.client_payload.commit_message }}"
+            }
