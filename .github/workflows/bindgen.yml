@@ -101,6 +101,30 @@ jobs:
         run: |
           chmod +x bindgen.sh
           ./bindgen.sh
+        continue-on-error: true
+        id: bindgen
+
+      - name: Upload build logs (on failure)
+        if: steps.bindgen.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ./binding/build_*.log
+          retention-days: 7
+
+      - name: Display build logs (on failure)
+        if: steps.bindgen.outcome == 'failure'
+        run: |
+          for log in ./binding/build_*.log; do
+            echo "============================================"
+            echo "LOG: $log"
+            echo "============================================"
+            cat "$log"
+          done
+
+      - name: Fail if bindgen failed
+        if: steps.bindgen.outcome == 'failure'
+        run: exit 1
 
       - name: Upload binding artifacts
         uses: actions/upload-artifact@v4
