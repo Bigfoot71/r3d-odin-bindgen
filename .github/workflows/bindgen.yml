@@ -51,9 +51,15 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
           sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-18 100
 
+          # Symlinks so that the linker can find -lclang
+          sudo ln -sf /usr/lib/llvm-18/lib/libclang-18.so /usr/lib/llvm-18/lib/libclang.so
+          sudo ln -sf /usr/lib/llvm-18/lib/libclang-18.so /usr/lib/x86_64-linux-gnu/libclang.so
+          sudo ln -sf /usr/lib/llvm-18/lib/libclang-18.a /usr/lib/llvm-18/lib/libclang.a
+
           # Verify installation
           clang --version
           llvm-config --version
+          ls -la /usr/lib/llvm-18/lib/libclang*  # Check that the symlinks are there.
 
       - name: Install Odin compiler
         run: |
@@ -80,6 +86,7 @@ jobs:
           # Build with Odin (output to a file, not directory)
           # Set library path to help linker find libclang
           export LD_LIBRARY_PATH=/usr/lib/llvm-18/lib:$LD_LIBRARY_PATH
+          export LIBRARY_PATH=/usr/lib/llvm-18/lib:$LIBRARY_PATH
           /tmp/Odin/odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
 
           # Move to a location in PATH
