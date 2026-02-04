@@ -26,6 +26,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release: latest
 
+      - name: Symlink libclang.so
+        run: sudo ln -s libclang-18.so.1 /lib/x86_64-linux-gnu/libclang.so
+        working-directory: ${{ env.LLVM_PATH }}/lib
+
       - name: Install odin-c-bindgen
         run: |
           git clone https://github.com/karl-zylinski/odin-c-bindgen.git /tmp/odin-c-bindgen
