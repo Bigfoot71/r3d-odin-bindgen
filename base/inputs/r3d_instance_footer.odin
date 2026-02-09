@@ -6,6 +6,7 @@ InstanceFlag :: enum u32 {
     ROTATION = 1,
     SCALE = 2,
     COLOR = 3,
+    CUSTOM = 4,
 }
 
 InstanceFlags :: bit_set[InstanceFlag; u32]
