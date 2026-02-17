@@ -45,6 +45,7 @@ jobs:
         run: |
           git clone https://github.com/karl-zylinski/odin-c-bindgen.git /tmp/odin-c-bindgen
           cd /tmp/odin-c-bindgen/src
+          git checkout 2.0 # TEMP OS2 FIX
           odin build . -o:speed -out:/tmp/odin-c-bindgen-bin
           sudo mv /tmp/odin-c-bindgen-bin /usr/local/bin/odin-c-bindgen
           sudo chmod +x /usr/local/bin/odin-c-bindgen
