@@ -44,7 +44,8 @@ jobs:
       - name: Install odin-c-bindgen
         run: |
           cd odin-c-bindgen/src
-          sudo odin build . -o:speed -out:/usr/local/bin/odin-c-bindgen
+          odin build . -o:speed -out:./odin-c-bindgen-bin
+          sudo mv ./odin-c-bindgen-bin /usr/local/bin/odin-c-bindgen
           sudo chmod +x /usr/local/bin/odin-c-bindgen
 
       - name: Download pre-built libraries from r3d
