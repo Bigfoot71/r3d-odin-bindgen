@@ -35,7 +35,6 @@ jobs:
         uses: laytan/setup-odin@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release: latest
           branch: master
 
       - name: Symlink libclang.so
