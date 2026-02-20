@@ -1,4 +1,4 @@
-CUBEMAP_SKY_BASE :: CubemapSky {
+PROCEDURAL_SKY_BASE :: ProceduralSky {
     skyTopColor = {98, 116, 140, 255},
     skyHorizonColor = {165, 167, 171, 255},
     skyHorizonCurve = 0.15,
