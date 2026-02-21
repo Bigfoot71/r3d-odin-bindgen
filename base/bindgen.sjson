@@ -50,7 +50,7 @@ struct_field_tags = {
 }
 
 procedure_type_overrides = {
-    "R3D_MapInstances.flag" = "InstanceFlag"
+
 }
 
 procedures_at_end = true
