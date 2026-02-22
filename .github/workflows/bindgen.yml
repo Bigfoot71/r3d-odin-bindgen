@@ -80,8 +80,11 @@ jobs:
           }
 
           for lib in libr3d.a libassimp.a; do
-            copy_lib "$lib" "ubuntu"  "./libs/linux"
-            copy_lib "$lib" "windows" "./libs/windows"
+            copy_lib "$lib" "ubuntu" "./libs/linux"
+          done
+
+          for lib in r3d.lib assimp-vc143-mt.lib; do
+            copy_lib "$lib" "cl" "./libs/windows"
           done
 
           ls -lR ./libs/

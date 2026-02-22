@@ -89,13 +89,17 @@ log_info "r3d submodule present"
 if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
     log_step "2" "Using pre-built libraries"
 
-    # Check all required libraries before doing anything
     MISSING_LIBS=()
 
-    [[ ! -f "$PREBUILT_LIBS_DIR/linux/libr3d.a" ]]    && MISSING_LIBS+=("linux/libr3d.a")
-    [[ ! -f "$PREBUILT_LIBS_DIR/linux/libassimp.a" ]]  && MISSING_LIBS+=("linux/libassimp.a")
-    [[ ! -f "$PREBUILT_LIBS_DIR/windows/libr3d.a" ]]   && MISSING_LIBS+=("windows/libr3d.a")
-    [[ ! -f "$PREBUILT_LIBS_DIR/windows/libassimp.a" ]] && MISSING_LIBS+=("windows/libassimp.a")
+    # Linux: .a format
+    for lib in libr3d.a libassimp.a; do
+        [[ ! -f "$PREBUILT_LIBS_DIR/linux/$lib" ]] && MISSING_LIBS+=("linux/$lib")
+    done
+
+    # Windows: MSVC .lib format
+    for lib in r3d.lib assimp-vc143-mt.lib; do
+        [[ ! -f "$PREBUILT_LIBS_DIR/windows/$lib" ]] && MISSING_LIBS+=("windows/$lib")
+    done
 
     if [[ ${#MISSING_LIBS[@]} -gt 0 ]]; then
         log_warn "The following libraries are missing from '$PREBUILT_LIBS_DIR':"
@@ -103,15 +107,19 @@ if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
             log_dim "  - $lib"
         done
         log_warn "Cannot use pre-built libraries - falling back to automatic build from source"
+        log_warn "Note: Windows (MSVC) libraries cannot be built automatically, only Linux will be compiled"
         PREBUILT_LIBS_DIR=""
     else
         mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/windows"
 
-        for platform in linux windows; do
-            for lib in libr3d.a libassimp.a; do
-                cp "$PREBUILT_LIBS_DIR/$platform/$lib" "$BINDING/r3d/$platform/$lib"
-                log_dim "$platform: $lib (pre-built)"
-            done
+        for lib in libr3d.a libassimp.a; do
+            cp "$PREBUILT_LIBS_DIR/linux/$lib" "$BINDING/r3d/linux/$lib"
+            log_dim "linux: $lib (pre-built)"
+        done
+
+        for lib in r3d.lib assimp-vc143-mt.lib; do
+            cp "$PREBUILT_LIBS_DIR/windows/$lib" "$BINDING/r3d/windows/$lib"
+            log_dim "windows: $lib (pre-built)"
         done
 
         log_info "Pre-built libraries ready"
@@ -119,9 +127,8 @@ if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
 fi
 
 if [[ -z "$PREBUILT_LIBS_DIR" ]]; then
-    log_step "2" "Building libraries from source"
+    log_step "2" "Building libraries from source (Linux only)"
 
-    # Additional tools required for building
     for tool in cmake ninja; do
         if ! command -v "$tool" &>/dev/null; then
             log_error "'$tool' not found in PATH (required for building libraries)"
@@ -129,7 +136,6 @@ if [[ -z "$PREBUILT_LIBS_DIR" ]]; then
         fi
     done
 
-    # Internal r3d submodules check
     readonly CRITICAL_SUBMODULES=(
         "r3d/external/assimp/CMakeLists.txt"
         "r3d/external/raylib/src/raylib.h"
@@ -144,14 +150,11 @@ if [[ -z "$PREBUILT_LIBS_DIR" ]]; then
     log_info "Internal submodules present"
 
     readonly BUILD_LINUX="$BINDING/build/linux"
-    readonly BUILD_WIN="$BINDING/build/windows"
-    mkdir -p "$BUILD_LINUX" "$BUILD_WIN"
+    mkdir -p "$BUILD_LINUX"
 
-    # Temporary directory for error sentinels
     readonly ERRDIR=$(mktemp -d)
     trap "rm -rf $ERRDIR" EXIT
 
-    # Generic build function with platform specific logging
     build_platform() {
         local platform="$1"
         local build_dir="$2"
@@ -172,37 +175,27 @@ if [[ -z "$PREBUILT_LIBS_DIR" ]]; then
         fi
     }
 
-    # Launch builds in parallel
-    build_platform "linux"   "$BUILD_LINUX" "$VENDOR_FLAGS_LINUX" &
-    build_platform "windows" "$BUILD_WIN"   "$VENDOR_FLAGS_WINDOWS -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake" &
+    build_platform "linux" "$BUILD_LINUX" "$VENDOR_FLAGS_LINUX"
 
-    wait
-
-    # Check for build failures
     if compgen -G "$ERRDIR/*" > /dev/null; then
         log_error "Build failed for: $(ls "$ERRDIR" | tr '\n' ' ')"
         exit 1
     fi
 
-    # Copy static libraries
     log_step "3" "Copying built libraries"
 
-    mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/windows"
+    mkdir -p "$BINDING/r3d/linux"
 
-    for platform in linux windows; do
-        build_dir="$BINDING/build/$platform"
+    for lib in libr3d.a libassimp.a; do
+        src=$(find "$BUILD_LINUX" -name "$lib" | head -1)
 
-        for lib in libr3d.a libassimp.a; do
-            src=$(find "$build_dir" -name "$lib" | head -1)
+        if [[ -z "$src" ]]; then
+            log_error "$lib not found in $BUILD_LINUX - check build logs"
+            exit 1
+        fi
 
-            if [[ -z "$src" ]]; then
-                log_error "$lib not found in $build_dir - check build logs"
-                exit 1
-            fi
-
-            cp "$src" "$BINDING/r3d/$platform/$lib"
-            log_dim "$platform: $lib"
-        done
+        cp "$src" "$BINDING/r3d/linux/$lib"
+        log_dim "linux: $lib"
     done
 
     log_info "Libraries copied successfully"
