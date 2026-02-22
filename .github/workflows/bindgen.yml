@@ -65,21 +65,24 @@ jobs:
           mkdir -p ./libs/linux
           mkdir -p ./libs/windows
 
-          LINUX_LIB=$(find ./prebuilt-libs/r3d-ubuntu-latest-Release-gcc -name "libr3d.a" | head -1)
-          if [ -n "$LINUX_LIB" ]; then
-            cp "$LINUX_LIB" ./libs/linux/libr3d.a
-            echo "Found Linux library: $LINUX_LIB"
-          else
-            echo "Warning: Linux library not found"
-          fi
+          copy_lib() {
+            local name=$1
+            local platform=$2
+            local dest=$3
 
-          WINDOWS_LIB=$(find ./prebuilt-libs/r3d-windows-latest-Release-gcc -name "libr3d.a" | head -1)
-          if [ -n "$WINDOWS_LIB" ]; then
-            cp "$WINDOWS_LIB" ./libs/windows/libr3d.a
-            echo "Found Windows library: $WINDOWS_LIB"
-          else
-            echo "Warning: Windows library not found"
-          fi
+            local file=$(find ./prebuilt-libs/ -path "*$platform*" -name "$name" | head -1)
+            if [ -n "$file" ]; then
+              cp "$file" "$dest/$name"
+              echo "Found $platform $name: $file"
+            else
+              echo "Warning: $platform $name not found"
+            fi
+          }
+
+          for lib in libr3d.a libassimp.a; do
+            copy_lib "$lib" "ubuntu"  "./libs/linux"
+            copy_lib "$lib" "windows" "./libs/windows"
+          done
 
           ls -lR ./libs/
 
