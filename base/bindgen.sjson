@@ -50,8 +50,9 @@ struct_field_tags = {
 }
 
 procedure_type_overrides = {
-    "R3D_AppendMeshData.vertices"   = "[^]Vertex"
-    "R3D_AppendMeshData.indices"    = "[^]u32"
+    "R3D_SetScreenShaderChain.shaders"  = "[^]^ScreenShader"
+    "R3D_AppendMeshData.vertices"       = "[^]Vertex"
+    "R3D_AppendMeshData.indices"        = "[^]u32"
 }
 
 procedures_at_end = true
