@@ -96,6 +96,11 @@ if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
         [[ ! -f "$PREBUILT_LIBS_DIR/linux/$lib" ]] && MISSING_LIBS+=("linux/$lib")
     done
 
+    # macOS: .a format
+    for lib in libr3d.a libassimp.a; do
+        [[ ! -f "$PREBUILT_LIBS_DIR/macos/$lib" ]] && MISSING_LIBS+=("macos/$lib")
+    done
+
     # Windows: MSVC .lib format
     for lib in r3d.lib assimp-vc143-mt.lib; do
         [[ ! -f "$PREBUILT_LIBS_DIR/windows/$lib" ]] && MISSING_LIBS+=("windows/$lib")
@@ -110,11 +115,16 @@ if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
         log_warn "Note: Windows (MSVC) libraries cannot be built automatically, only Linux will be compiled"
         PREBUILT_LIBS_DIR=""
     else
-        mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/windows"
+        mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/macos" "$BINDING/r3d/windows"
 
         for lib in libr3d.a libassimp.a; do
             cp "$PREBUILT_LIBS_DIR/linux/$lib" "$BINDING/r3d/linux/$lib"
             log_dim "linux: $lib (pre-built)"
+        done
+
+        for lib in libr3d.a libassimp.a; do
+            cp "$PREBUILT_LIBS_DIR/macos/$lib" "$BINDING/r3d/macos/$lib"
+            log_dim "macos: $lib (pre-built)"
         done
 
         for lib in r3d.lib assimp-vc143-mt.lib; do
@@ -128,6 +138,7 @@ fi
 
 if [[ -z "$PREBUILT_LIBS_DIR" ]]; then
     log_step "2" "Building libraries from source (Linux only)"
+    log_warn "macOS libraries cannot be cross-compiled - macos/ will be empty"  # TODO: Review this
 
     for tool in cmake ninja; do
         if ! command -v "$tool" &>/dev/null; then
@@ -184,7 +195,7 @@ if [[ -z "$PREBUILT_LIBS_DIR" ]]; then
 
     log_step "3" "Copying built libraries"
 
-    mkdir -p "$BINDING/r3d/linux"
+    mkdir -p "$BINDING/r3d/linux" "$BINDING/r3d/macos"
 
     for lib in libr3d.a libassimp.a; do
         src=$(find "$BUILD_LINUX" -name "$lib" | head -1)

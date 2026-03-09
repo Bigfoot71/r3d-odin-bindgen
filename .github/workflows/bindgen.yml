@@ -63,6 +63,7 @@ jobs:
         if: github.event.client_payload.run_id || inputs.r3d_run_id
         run: |
           mkdir -p ./libs/linux
+          mkdir -p ./libs/macos
           mkdir -p ./libs/windows
 
           copy_lib() {
@@ -80,11 +81,15 @@ jobs:
           }
 
           for lib in libr3d.a libassimp.a; do
-            copy_lib "$lib" "ubuntu" "./libs/linux"
+            copy_lib "$lib" "r3d-ubuntu-latest-Release-clang" "./libs/linux"
+          done
+
+          for lib in libr3d.a libassimp.a; do
+            copy_lib "$lib" "r3d-macos-latest-Release-clang" "./libs/macos"
           done
 
           for lib in r3d.lib assimp-vc143-mt.lib; do
-            copy_lib "$lib" "cl" "./libs/windows"
+            copy_lib "$lib" "r3d-windows-latest-Release-cl" "./libs/windows"
           done
 
           ls -lR ./libs/
