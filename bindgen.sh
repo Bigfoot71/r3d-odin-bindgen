@@ -280,6 +280,10 @@ if [[ -f "$BINDING/r3d/r3d.odin" ]]; then
     log_dim "Removed r3d.odin"
 fi
 
+# Remove the minimal 'foreign import lib' block from r3d_core.odin
+# because the footer r3d_core_footer.odin provides the complete block
+perl -i -0pe 's/when ODIN_OS == \.Windows \{.*?foreign import lib \{\s*"\/macos\/libr3d\.a",\s*\}\s*\}\n{0,2}//s' "$BINDING/r3d/r3d_core.odin"
+
 # Raylib types to prefix with 'rl.'
 # Ordered: compound types before base types
 readonly RAYLIB_TYPES=(
