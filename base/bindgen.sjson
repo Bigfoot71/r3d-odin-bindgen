@@ -21,7 +21,9 @@ bit_setify = {
 }
 
 type_overrides = {
-
+    "R3D_SurfaceShader" = "struct {}"
+    "R3D_ScreenShader"  = "struct {}"
+    "R3D_SkyShader"     = "struct {}"
 }
 
 struct_field_overrides = {
@@ -96,6 +98,8 @@ remove = [
     "R3D_ProbeFlags"
     "R3D_PROBE_ILLUMINATION"
     "R3D_PROBE_REFLECTION"
+
+    "R3D_ShaderCustom"
 ]
 
 clang_include_paths = [
