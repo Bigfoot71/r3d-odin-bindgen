@@ -183,7 +183,6 @@ jobs:
       # === Artifacts ====================================================
 
       - name: Upload binding artifacts
-        if: steps.check.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: r3d-odin-bindings
