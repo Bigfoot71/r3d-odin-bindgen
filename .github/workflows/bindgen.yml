@@ -41,6 +41,16 @@ jobs:
 
       # === Toolchain =====================================================
 
+      - name: Update r3d submodule
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          cd r3d
+          git fetch origin
+          git checkout ${{ steps.check.outputs.latest_sha }}
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Setup Odin
         if: steps.check.outputs.changed == 'true'
         uses: laytan/setup-odin@v2
@@ -165,11 +175,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           echo "${{ steps.check.outputs.latest_sha }}" > .last-r3d-sha
-          git add .last-r3d-sha
-
-          if ! git diff --quiet --cached r3d; then
-            git add r3d
-          fi
+          git add .last-r3d-sha r3d
 
           git commit -m "Update bindings from r3d@${{ steps.check.outputs.latest_sha }}"
           git push
