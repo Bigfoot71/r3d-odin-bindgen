@@ -160,14 +160,6 @@ jobs:
 
       # === Commit =======================================================
 
-      - name: Update r3d submodule
-        if: steps.check.outputs.changed == 'true'
-        run: |
-          cd r3d
-          git fetch origin
-          git checkout ${{ steps.check.outputs.latest_sha }}
-          cd ..
-
       - name: Commit and push
         if: steps.check.outputs.changed == 'true' && (steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success')
         run: |
