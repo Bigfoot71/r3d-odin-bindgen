@@ -1,8 +1,11 @@
 name: Generate Odin Bindings
 
 on:
-  repository_dispatch:
-    types: [r3d-updated]
+  workflow_run:
+    workflows: ["Multi-Platform Build"]
+    types: [completed]
+    branches: [master]
+    repositories: ["Bigfoot71/r3d"]
   workflow_dispatch:
     inputs:
       r3d_run_id:
@@ -13,7 +16,10 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
+
     steps:
       - name: Checkout bindgen repository
         uses: actions/checkout@v4
@@ -22,11 +28,11 @@ jobs:
           token: ${{ secrets.BINDGEN_PAT }}
 
       - name: Update r3d submodule (on automatic trigger)
-        if: github.event_name == 'repository_dispatch'
+        if: github.event_name == 'workflow_run'
         run: |
           cd r3d
           git fetch origin
-          git checkout ${{ github.event.client_payload.sha }}
+          git checkout ${{ github.event.workflow_run.head_sha }}
           cd ..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -49,18 +55,18 @@ jobs:
           sudo chmod +x /usr/local/bin/odin-c-bindgen
 
       - name: Download pre-built libraries from r3d
-        if: github.event.client_payload.run_id || inputs.r3d_run_id
+        if: github.event.workflow_run.id != '' || inputs.r3d_run_id != ''
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.BINDGEN_PAT }}
-          workflow: cmake-multi-platform.yml
+          workflow: build.yml
           repo: Bigfoot71/r3d
-          run_id: ${{ github.event.client_payload.run_id || inputs.r3d_run_id }}
+          run_id: ${{ github.event.workflow_run.id || inputs.r3d_run_id }}
           path: ./prebuilt-libs/
           skip_unpack: false
 
       - name: Prepare pre-built libraries for bindgen script
-        if: github.event.client_payload.run_id || inputs.r3d_run_id
+        if: github.event.workflow_run.id != '' || inputs.r3d_run_id != ''
         run: |
           mkdir -p ./libs/linux
           mkdir -p ./libs/macos
@@ -95,7 +101,7 @@ jobs:
           ls -lR ./libs/
 
       - name: Generate bindings (with pre-built libs)
-        if: github.event.client_payload.run_id || inputs.r3d_run_id
+        if: github.event.workflow_run.id != '' || inputs.r3d_run_id != ''
         run: |
           chmod +x bindgen.sh
           ./bindgen.sh --prebuilt-libs ./libs
@@ -116,7 +122,7 @@ jobs:
             libxinerama-dev \
             libxi-dev \
             libgl-dev
-          
+
           chmod +x bindgen.sh
           ./bindgen.sh
         continue-on-error: true
@@ -145,17 +151,13 @@ jobs:
         run: exit 1
 
       - name: Commit and push submodule update (on automatic trigger)
-        if: github.event_name == 'repository_dispatch' && (steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success')
+        if: github.event_name == 'workflow_run' && (steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success')
         run: |
           if git diff --quiet r3d; then
             echo "No submodule changes to commit"
           else
             git add r3d
-            COMMIT_MSG="Update r3d submodule to ${{ github.event.client_payload.sha }}"
-            if [ -n "${{ github.event.client_payload.commit_message }}" ]; then
-              COMMIT_MSG="$COMMIT_MSG Source commit: ${{ github.event.client_payload.commit_message }}"
-            fi
-            git commit -m "$COMMIT_MSG"
+            git commit -m "Update r3d submodule to ${{ github.event.workflow_run.head_sha }}"
             git push
           fi
 
@@ -166,16 +168,3 @@ jobs:
           path: binding/r3d/
           retention-days: 7
           if-no-files-found: error
-
-      - name: Trigger r3d-odin update
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.BINDGEN_PAT }}
-          repository: Bigfoot71/r3d-odin
-          event-type: bindings-ready
-          client-payload: |
-            {
-              "run_id": "${{ github.run_id }}",
-              "source_sha": "${{ github.event.client_payload.sha }}",
-              "source_commit": ${{ toJSON(github.event.client_payload.commit_message) }}
-            }
