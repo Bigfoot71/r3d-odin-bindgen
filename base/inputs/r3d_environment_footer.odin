@@ -71,7 +71,7 @@ ENVIRONMENT_BASE :: Environment {
         skyAffect = 0.5,
     },
     dof = {
-        mode        = R3D_DOF_DISABLED,
+        mode        = .DISABLED,
         focusPoint  = 10.0,
         focusScale  = 1.0,
         nearScale   = 1.0,
