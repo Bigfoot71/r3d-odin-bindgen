@@ -37,23 +37,24 @@ jobs:
 
       - name: No new build detected
         if: steps.check.outputs.changed == 'false'
-        run: |
-          echo "r3d has not changed since last run, skipping."
-          exit 0
+        run: echo "r3d has not changed since last run, skipping."
 
       # === Toolchain =====================================================
 
       - name: Setup Odin
+        if: steps.check.outputs.changed == 'true'
         uses: laytan/setup-odin@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release: latest
 
       - name: Symlink libclang.so
+        if: steps.check.outputs.changed == 'true'
         run: sudo ln -s libclang-18.so.1 /lib/x86_64-linux-gnu/libclang.so
         working-directory: ${{ env.LLVM_PATH }}/lib
 
       - name: Install odin-c-bindgen
+        if: steps.check.outputs.changed == 'true'
         run: |
           cd odin-c-bindgen/src
           odin build . -o:speed -out:./odin-c-bindgen-bin
@@ -63,6 +64,7 @@ jobs:
       # === Libraries ====================================================
 
       - name: Download pre-built libraries from r3d
+        if: steps.check.outputs.changed == 'true'
         id: download_libs
         uses: dawidd6/action-download-artifact@v3
         with:
@@ -75,7 +77,7 @@ jobs:
         continue-on-error: true
 
       - name: Prepare pre-built libraries for bindgen script
-        if: steps.download_libs.outcome == 'success'
+        if: steps.check.outputs.changed == 'true' && steps.download_libs.outcome == 'success'
         run: |
           mkdir -p ./libs/linux ./libs/macos ./libs/windows
 
@@ -104,7 +106,7 @@ jobs:
       # === Generate =====================================================
 
       - name: Generate bindings (with pre-built libs)
-        if: steps.download_libs.outcome == 'success'
+        if: steps.check.outputs.changed == 'true' && steps.download_libs.outcome == 'success'
         run: |
           chmod +x bindgen.sh
           ./bindgen.sh --prebuilt-libs ./libs
@@ -112,7 +114,7 @@ jobs:
         id: bindgen_prebuilt
 
       - name: Generate bindings (build libs from scratch)
-        if: steps.download_libs.outcome != 'success' || steps.bindgen_prebuilt.outcome == 'failure'
+        if: steps.check.outputs.changed == 'true' && (steps.download_libs.outcome != 'success' || steps.bindgen_prebuilt.outcome == 'failure')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -125,7 +127,7 @@ jobs:
         id: bindgen_scratch
 
       - name: Upload build logs (on failure)
-        if: steps.bindgen_prebuilt.outcome == 'failure' || steps.bindgen_scratch.outcome == 'failure'
+        if: steps.check.outputs.changed == 'true' && (steps.bindgen_prebuilt.outcome == 'failure' || steps.bindgen_scratch.outcome == 'failure')
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
@@ -133,7 +135,7 @@ jobs:
           retention-days: 7
 
       - name: Display build logs (on failure)
-        if: steps.bindgen_prebuilt.outcome == 'failure' || steps.bindgen_scratch.outcome == 'failure'
+        if: steps.check.outputs.changed == 'true' && (steps.bindgen_prebuilt.outcome == 'failure' || steps.bindgen_scratch.outcome == 'failure')
         run: |
           for log in ./binding/build_*.log; do
             echo "============================================"
@@ -143,12 +145,13 @@ jobs:
           done
 
       - name: Fail if bindgen failed
-        if: steps.bindgen_prebuilt.outcome == 'failure' && steps.bindgen_scratch.outcome == 'failure'
+        if: steps.check.outputs.changed == 'true' && steps.bindgen_prebuilt.outcome == 'failure' && steps.bindgen_scratch.outcome == 'failure'
         run: exit 1
 
       # === Commit =======================================================
 
       - name: Update r3d submodule
+        if: steps.check.outputs.changed == 'true'
         run: |
           cd r3d
           git fetch origin
@@ -156,7 +159,7 @@ jobs:
           cd ..
 
       - name: Commit and push
-        if: steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success'
+        if: steps.check.outputs.changed == 'true' && (steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success')
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -174,6 +177,7 @@ jobs:
       # === Artifacts ====================================================
 
       - name: Upload binding artifacts
+        if: steps.check.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: r3d-odin-bindings
