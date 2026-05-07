@@ -1,24 +1,13 @@
 name: Generate Odin Bindings
 
 on:
-  workflow_run:
-    workflows: ["Multi-Platform Build"]
-    types: [completed]
-    branches: [master]
-    repositories: ["Bigfoot71/r3d"]
+  schedule:
+    - cron: '0 5 * * *'
   workflow_dispatch:
-    inputs:
-      r3d_run_id:
-        description: 'Run ID from r3d CI workflow (optional, will build libs if not provided)'
-        required: false
-        type: string
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout bindgen repository
@@ -27,15 +16,30 @@ jobs:
           submodules: recursive
           token: ${{ secrets.BINDGEN_PAT }}
 
-      - name: Update r3d submodule (on automatic trigger)
-        if: github.event_name == 'workflow_run'
+      # === Check for new r3d build =======================================
+
+      - name: Check for new successful build in r3d
+        id: check
         run: |
-          cd r3d
-          git fetch origin
-          git checkout ${{ github.event.workflow_run.head_sha }}
-          cd ..
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          RESPONSE=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/Bigfoot71/r3d/actions/workflows/build.yml/runs?status=success&branch=master&per_page=1")
+
+          LATEST_SHA=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].head_sha')
+          LATEST_RUN_ID=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].id')
+          LAST_SHA=$(cat .last-r3d-sha 2>/dev/null || echo "")
+
+          echo "latest_sha=$LATEST_SHA" >> $GITHUB_OUTPUT
+          echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
+          echo "changed=$( [ "$LATEST_SHA" != "$LAST_SHA" ] && echo true || echo false )" >> $GITHUB_OUTPUT
+
+      - name: No new build detected
+        if: steps.check.outputs.changed == 'false'
+        run: |
+          echo "r3d has not changed since last run, skipping."
+          exit 0
+
+      # === Toolchain =====================================================
 
       - name: Setup Odin
         uses: laytan/setup-odin@v2
@@ -54,29 +58,27 @@ jobs:
           sudo mv ./odin-c-bindgen-bin /usr/local/bin/odin-c-bindgen
           sudo chmod +x /usr/local/bin/odin-c-bindgen
 
+      # === Libraries ====================================================
+
       - name: Download pre-built libraries from r3d
-        if: github.event.workflow_run.id != '' || inputs.r3d_run_id != ''
+        id: download_libs
         uses: dawidd6/action-download-artifact@v3
         with:
-          github_token: ${{ secrets.BINDGEN_PAT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: build.yml
           repo: Bigfoot71/r3d
-          run_id: ${{ github.event.workflow_run.id || inputs.r3d_run_id }}
+          run_id: ${{ steps.check.outputs.latest_run_id }}
           path: ./prebuilt-libs/
           skip_unpack: false
+        continue-on-error: true
 
       - name: Prepare pre-built libraries for bindgen script
-        if: github.event.workflow_run.id != '' || inputs.r3d_run_id != ''
+        if: steps.download_libs.outcome == 'success'
         run: |
-          mkdir -p ./libs/linux
-          mkdir -p ./libs/macos
-          mkdir -p ./libs/windows
+          mkdir -p ./libs/linux ./libs/macos ./libs/windows
 
           copy_lib() {
-            local name=$1
-            local platform=$2
-            local dest=$3
-
+            local name=$1 platform=$2 dest=$3
             local file=$(find ./prebuilt-libs/ -path "*$platform*" -name "$name" | head -1)
             if [ -n "$file" ]; then
               cp "$file" "$dest/$name"
@@ -88,9 +90,6 @@ jobs:
 
           for lib in libr3d.a libassimp.a; do
             copy_lib "$lib" "r3d-ubuntu-latest-Release-clang" "./libs/linux"
-          done
-
-          for lib in libr3d.a libassimp.a; do
             copy_lib "$lib" "r3d-macos-latest-Release-clang" "./libs/macos"
           done
 
@@ -100,8 +99,10 @@ jobs:
 
           ls -lR ./libs/
 
+      # === Generate =====================================================
+
       - name: Generate bindings (with pre-built libs)
-        if: github.event.workflow_run.id != '' || inputs.r3d_run_id != ''
+        if: steps.download_libs.outcome == 'success'
         run: |
           chmod +x bindgen.sh
           ./bindgen.sh --prebuilt-libs ./libs
@@ -109,20 +110,13 @@ jobs:
         id: bindgen_prebuilt
 
       - name: Generate bindings (build libs from scratch)
-        if: steps.bindgen_prebuilt.outcome == 'skipped' || steps.bindgen_prebuilt.outcome == 'failure'
+        if: steps.download_libs.outcome != 'success' || steps.bindgen_prebuilt.outcome == 'failure'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            mingw-w64 \
-            libx11-dev \
-            libxcursor-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxi-dev \
-            libgl-dev
-
+            cmake ninja-build mingw-w64 \
+            libx11-dev libxcursor-dev libxrandr-dev \
+            libxinerama-dev libxi-dev libgl-dev
           chmod +x bindgen.sh
           ./bindgen.sh
         continue-on-error: true
@@ -150,16 +144,32 @@ jobs:
         if: steps.bindgen_prebuilt.outcome == 'failure' && steps.bindgen_scratch.outcome == 'failure'
         run: exit 1
 
-      - name: Commit and push submodule update (on automatic trigger)
-        if: github.event_name == 'workflow_run' && (steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success')
+      # === Commit =======================================================
+
+      - name: Update r3d submodule
         run: |
-          if git diff --quiet r3d; then
-            echo "No submodule changes to commit"
-          else
+          cd r3d
+          git fetch origin
+          git checkout ${{ steps.check.outputs.latest_sha }}
+          cd ..
+
+      - name: Commit and push
+        if: steps.bindgen_prebuilt.outcome == 'success' || steps.bindgen_scratch.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "${{ steps.check.outputs.latest_sha }}" > .last-r3d-sha
+          git add .last-r3d-sha
+
+          if ! git diff --quiet --cached r3d; then
             git add r3d
-            git commit -m "Update r3d submodule to ${{ github.event.workflow_run.head_sha }}"
-            git push
           fi
+
+          git commit -m "Update bindings from r3d@${{ steps.check.outputs.latest_sha }}"
+          git push
+
+      # === Artifacts ====================================================
 
       - name: Upload binding artifacts
         uses: actions/upload-artifact@v4
