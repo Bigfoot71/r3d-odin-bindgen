@@ -44,7 +44,7 @@ when ODIN_OS == .Windows {
     foreign import lib {
         "windows/r3d.lib",
         "vendor:raylib/windows/raylib.lib",
-        "windows/assimp-vc143-mt.lib",
+        "windows/assimp-vc145-mt.lib",
         "vendor:zlib/libz.lib",
     }
 } else when ODIN_OS == .Linux {

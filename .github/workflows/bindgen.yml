@@ -93,7 +93,7 @@ jobs:
             copy_lib "$lib" "r3d-macos-latest-Release-clang" "./libs/macos"
           done
 
-          for lib in r3d.lib assimp-vc143-mt.lib; do
+          for lib in r3d.lib assimp-vc145-mt.lib; do
             copy_lib "$lib" "r3d-windows-latest-Release-cl" "./libs/windows"
           done
 

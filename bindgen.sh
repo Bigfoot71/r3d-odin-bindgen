@@ -102,7 +102,7 @@ if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
     done
 
     # Windows: MSVC .lib format
-    for lib in r3d.lib assimp-vc143-mt.lib; do
+    for lib in r3d.lib assimp-vc145-mt.lib; do
         [[ ! -f "$PREBUILT_LIBS_DIR/windows/$lib" ]] && MISSING_LIBS+=("windows/$lib")
     done
 
@@ -127,7 +127,7 @@ if [[ -n "$PREBUILT_LIBS_DIR" ]]; then
             log_dim "macos: $lib (pre-built)"
         done
 
-        for lib in r3d.lib assimp-vc143-mt.lib; do
+        for lib in r3d.lib assimp-vc145-mt.lib; do
             cp "$PREBUILT_LIBS_DIR/windows/$lib" "$BINDING/r3d/windows/$lib"
             log_dim "windows: $lib (pre-built)"
         done
