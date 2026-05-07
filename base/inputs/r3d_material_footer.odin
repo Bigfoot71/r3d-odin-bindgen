@@ -46,6 +46,7 @@ MATERIAL_BASE :: Material {
     billboardMode    = .DISABLED,
     blendMode        = .MIX,
     cullMode         = .BACK,
-    unlit  = false,
-    shader = nil,
+    unlit            = false,
+    priority         = 0,
+    shader           = nil,
 }
