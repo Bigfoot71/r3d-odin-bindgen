@@ -293,7 +293,7 @@ readonly RAYLIB_TYPES=(
     "BoundingBox" "Rectangle"
     "Vector2" "Vector3" "Vector4" "Quaternion"
     "Matrix" "Color" "Transform"
-    "Camera3D" "CameraMode" "CameraProjection" "Camera"
+    "Camera3D" "CameraMode" "CameraProjection"
     "Image" "TextureFilter" "TextureWrap" "PixelFormat"
 )
 
