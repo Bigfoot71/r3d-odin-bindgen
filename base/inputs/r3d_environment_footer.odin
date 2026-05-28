@@ -54,14 +54,6 @@ ENVIRONMENT_BASE :: Environment {
         edgeFade    = 0.25,
         enabled     = false,
     },
-    bloom = {
-        mode          = .DISABLED,
-        levels        = 0.5,
-        intensity     = 0.05,
-        threshold     = 0.0,
-        softThreshold = 0.5,
-        filterRadius  = 1.0,
-    },
     fog = {
         mode      = .DISABLED,
         color     = {255, 255, 255, 255},
@@ -76,6 +68,22 @@ ENVIRONMENT_BASE :: Environment {
         focusScale  = 1.0,
         nearScale   = 1.0,
         maxBlurSize = 20.0,
+    },
+    bloom = {
+        mode          = .DISABLED,
+        levels        = 0.5,
+        intensity     = 0.05,
+        threshold     = 0.0,
+        softThreshold = 0.5,
+        filterRadius  = 1.0,
+    },
+    autoExposure = {
+        minEV                = -1.0,
+        maxEV                = 1.0,
+        exposureCompensation = 0.0,
+        adaptationToBright   = 0.5,
+        adaptationToDark     = 1.0,
+        enabled = false,
     },
     tonemap = {
         mode     = .LINEAR,
