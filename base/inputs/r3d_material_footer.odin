@@ -23,6 +23,7 @@ MATERIAL_BASE :: Material {
         occlusion = 1.0,
         roughness = 1.0,
         metalness = 0.0,
+        specular  = 0.5,
     },
     uvOffset = {0.0, 0.0},
     uvScale  = {1.0, 1.0},
