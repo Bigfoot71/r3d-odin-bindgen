@@ -62,6 +62,18 @@ ENVIRONMENT_BASE :: Environment {
         density   = 0.05,
         skyAffect = 0.5,
     },
+    volumetricFog = {
+        scatteringDensity = 0.01,
+        absortionDensity  = 0.03,
+        scatteringColor   = {255, 255, 255, 255},
+        anisotropy        = 0.5,
+        emissionColor     = {255, 255, 255, 255},
+        emissionEnergy    = 0.0,
+        skyAffect         = 0.5,
+        length            = 50.0,
+        stepSize          = 1.0,
+        enabled           = false,
+    },
     dof = {
         mode        = .DISABLED,
         focusPoint  = 10.0,
