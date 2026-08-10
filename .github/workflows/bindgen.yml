@@ -18,24 +18,60 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # === Check for new r3d build =======================================
+      # === Check for new commit + latest usable artifacts on r3d/master ===
+      # latest_sha: always the true latest commit on master, regardless of CI status
+      # (a docs-only commit must not block binding generation).
+      # artifact_run_id: latest push-triggered, successful build.yml run on master
+      # that actually produced artifacts (may be older than latest_sha).
 
-      - name: Check for new successful build in r3d
+      - name: Check for new commit and available artifacts in r3d
         id: check
         run: |
-          RESPONSE=$(curl -s \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/Bigfoot71/r3d/actions/workflows/build.yml/runs?status=success&branch=master&per_page=1")
+          set -e
 
-          LATEST_SHA=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].head_sha')
-          LATEST_RUN_ID=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].id')
+          # 1) True latest commit on master, independent of CI status
+          LATEST_SHA=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/Bigfoot71/r3d/commits/master" \
+            | jq -r '.sha')
+
           LAST_SHA=$(cat .last-r3d-sha 2>/dev/null || echo "")
 
           echo "latest_sha=$LATEST_SHA" >> $GITHUB_OUTPUT
-          echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
           echo "changed=$( [ "$LATEST_SHA" != "$LAST_SHA" ] && echo true || echo false )" >> $GITHUB_OUTPUT
 
-      - name: No new build detected
+          # 2) Latest successful push run on master that has real artifacts
+          ARTIFACT_RUN_ID=""
+          ARTIFACT_SHA=""
+
+          RUNS=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/Bigfoot71/r3d/actions/workflows/build.yml/runs?status=success&branch=master&event=push&per_page=10")
+
+          for row in $(echo "$RUNS" | jq -r '.workflow_runs[] | @base64'); do
+            _jq() { echo "$row" | base64 -d | jq -r "$1"; }
+
+            RUN_ID=$(_jq '.id')
+            COUNT=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/Bigfoot71/r3d/actions/runs/$RUN_ID/artifacts" \
+              | jq -r '.total_count')
+
+            if [ "$COUNT" != "0" ] && [ "$COUNT" != "null" ]; then
+              ARTIFACT_RUN_ID=$RUN_ID
+              ARTIFACT_SHA=$(_jq '.head_sha')
+              break
+            fi
+          done
+
+          echo "artifact_run_id=$ARTIFACT_RUN_ID" >> $GITHUB_OUTPUT
+          echo "artifact_sha=$ARTIFACT_SHA" >> $GITHUB_OUTPUT
+          echo "artifacts_found=$( [ -n "$ARTIFACT_RUN_ID" ] && echo true || echo false )" >> $GITHUB_OUTPUT
+
+          echo "Latest master commit: $LATEST_SHA"
+          echo "Latest run with artifacts: $ARTIFACT_RUN_ID (from $ARTIFACT_SHA)"
+
+      - name: No new commit detected
         if: steps.check.outputs.changed == 'false'
         run: echo "r3d has not changed since last run, skipping."
 
@@ -74,14 +110,14 @@ jobs:
       # === Libraries ====================================================
 
       - name: Download pre-built libraries from r3d
-        if: steps.check.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true' && steps.check.outputs.artifacts_found == 'true'
         id: download_libs
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: build.yml
           repo: Bigfoot71/r3d
-          run_id: ${{ steps.check.outputs.latest_run_id }}
+          run_id: ${{ steps.check.outputs.artifact_run_id }}
           path: ./prebuilt-libs/
           skip_unpack: false
         continue-on-error: true
