@@ -144,7 +144,7 @@ jobs:
           done
 
           for lib in r3d.lib assimp-vc143-mt.lib; do
-            copy_lib "$lib" "r3d-windows-latest-Release-cl" "./libs/windows"
+            copy_lib "$lib" "r3d-windows-2022-Release-cl" "./libs/windows"
           done
 
           ls -lR ./libs/
